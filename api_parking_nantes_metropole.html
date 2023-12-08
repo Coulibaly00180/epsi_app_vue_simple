@@ -8,42 +8,89 @@
 <body>
 
     <div id="parking-app">
-        <ul>
-            <li v-for="parking in parkings" :key="parking.grp_identifiant">
-              {{ parking.grp_nom }} - Places disponibles : {{ parking.grp_disponible }}
-            </li>
-        </ul>
+        <input type="text" v-model="searchQuery" placeholder="Rechercher un parking...">
+        <table>
+            <thead>
+                <tr>
+                    <th>Nom du Parking</th>
+                    <th>Places Disponibles</th>
+                    <th>Localisation</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr v-for="parking in filteredParkings" :key="parking.grp_identifiant">
+                    <td>{{ parking.grp_nom }}</td>
+                    <td>{{ parking.grp_disponible }}</td>
+                    <td><button @click="showOnMap(parking)">Voir sur la carte</button></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div id="map" style="height: 400px; width: 100%;"></div>
     </div>
 
 
     <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
-	<script src="https://unpkg.com/vue@3"></script>
+    <script src="https://unpkg.com/vue@3"></script>
     <script>
-        const apiURL = "https://data.nantesmetropole.fr/api/explore/v2.1/catalog/datasets/244400404_parkings-publics-nantes-disponibilites/records?limit=20"
-        const config = {};
+        const apiURL = "https://data.nantesmetropole.fr/api/explore/v2.1/catalog/datasets/244400404_parkings-publics-nantes-disponibilites/records?limit=20";
         Vue.createApp({
             data() {
-                return{
+                return {
                     parkings: [],
+                    searchQuery: '',
                 };
             },
             created: function(){
                 this.fetchDataPromise();
+            },
+            computed: {
+                filteredParkings() {
+                    return this.parkings.filter(parking => 
+                        parking.grp_nom.toLowerCase().includes(this.searchQuery.toLowerCase())
+                    );
+                }
             },
             methods: {
                 fetchDataPromise: function(){
                     axios
                         .get(apiURL)
                         .then((response) => {
-                            console.log(response.data.results);
-                            this.parkings = response.data.results
-						})
-						.catch(function (error) {
-							console.log("appel api en erreur")
-							console.log(error);
-						});
-					},
-            }
+                            this.parkings = response.data.results;
+                        })
+                        .catch(function (error) {
+                            console.log("appel api en erreur");
+                            console.log(error);
+                        });
+                },
+                showOnMap: function(parking) {
+                    const lat = parking.location.lat;
+                    const lon = parking.location.lon;
+
+                    const location = { lat: lat, lng: lon };
+                    const map = new google.maps.Map(document.getElementById("map"), {
+                      zoom: 15,
+                      center: location,
+                    });
+                    new google.maps.Marker({
+                      position: location,
+                      map: map,
+                    });
+                },
+                initMap: function() {
+                    new google.maps.Map(document.getElementById("map"), {
+                        zoom: 12,
+                        center: { lat: 47.203096, lng: -1.542571 },
+                    });
+                },
+            },
+            mounted: function() {
+                window.initMap = this.initMap;
+                const script = document.createElement('script');
+                script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyBTgf5IctPpx0gikM8HEUoz7GdSFICnadI&callback=initMap`;
+                script.async = true;
+                document.head.appendChild(script);
+            },
         }).mount("#parking-app");
     </script>
 </body>
